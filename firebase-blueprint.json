@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account information including balance, saved banks, and total carbon footprint impact",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier of the user matching their Firebase Auth uid"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "balance": {
+          "type": "number",
+          "description": "Current withdrawable balance in TRY"
+        },
+        "todayEarnings": {
+          "type": "number",
+          "description": "Estimated earnings for today in USD/TRY"
+        },
+        "totalBalanceUsd": {
+          "type": "number",
+          "description": "Total balance including asset value in USD"
+        },
+        "treesSaved": {
+          "type": "integer",
+          "description": "Number of trees saved by investments"
+        },
+        "co2Prevented": {
+          "type": "number",
+          "description": "Tons of CO2 prevented"
+        },
+        "savedAccounts": {
+          "type": "array",
+          "description": "List of saved bank accounts for withdrawals"
+        }
+      },
+      "required": ["uid", "name", "email", "balance", "todayEarnings", "totalBalanceUsd", "treesSaved", "co2Prevented"]
+    },
+    "Plant": {
+      "title": "Plant",
+      "description": "Green solar plant project details in the investment portfolio",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique plant identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the solar park (e.g., Santral A)"
+        },
+        "location": {
+          "type": "string",
+          "description": "Geographical location (e.g., Antalya, Türkiye)"
+        },
+        "sharePercentage": {
+          "type": "number",
+          "description": "The user's percentage slice/share of this plant"
+        },
+        "capacityKw": {
+          "type": "number",
+          "description": "The power rating of the plant in kW"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVE", "MAINTENANCE", "OFFLINE"],
+          "description": "Current operational status of solar array"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Visual illustration of the installation site"
+        },
+        "currentGeneration": {
+          "type": "number",
+          "description": "Relative instantaneous generation power in kWh"
+        }
+      },
+      "required": ["id", "name", "location", "sharePercentage", "capacityKw", "status", "imageUrl"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "A financial transaction representing a withdrawal request initiated by a user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Transaction unique identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Associated user who requested withdrawal"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary value in TRY to withdraw"
+        },
+        "bankName": {
+          "type": "string",
+          "description": "Bank requested for transfer"
+        },
+        "iban": {
+          "type": "string",
+          "description": "Target IBAN number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PROCESSING", "COMPLETED", "FAILED"],
+          "description": "Current state of transfer processing"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Request creation timestamp"
+        },
+        "txHash": {
+          "type": "string",
+          "description": "Simulated blockchain/system confirmation transaction hash"
+        }
+      },
+      "required": ["id", "userId", "amount", "bankName", "iban", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Private user metadata schema mapping personal info and balances"
+    },
+    "/plants/{plantId}": {
+      "schema": "Plant",
+      "description": "Public read database of solar properties and operational yields"
+    },
+    "/users/{userId}/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Private list of user specific withdrawals tracking state transitions"
+    }
+  }
+}

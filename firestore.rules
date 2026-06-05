@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default safety deny rules
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'balance', 'todayEarnings', 'totalBalanceUsd', 'treesSaved', 'co2Prevented'])
+        && data.keys().size() == 8
+        && data.uid is string && data.uid.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && data.balance is number && data.balance >= 0
+        && data.todayEarnings is number && data.todayEarnings >= 0
+        && data.totalBalanceUsd is number && data.totalBalanceUsd >= 0
+        && data.treesSaved is int && data.treesSaved >= 0
+        && data.co2Prevented is number && data.co2Prevented >= 0;
+    }
+
+    function isValidPlant(data) {
+      return data.keys().hasAll(['id', 'name', 'location', 'sharePercentage', 'capacityKw', 'status', 'imageUrl'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 100
+        && data.location is string && data.location.size() <= 150
+        && data.sharePercentage is number && data.sharePercentage >= 0 && data.sharePercentage <= 100
+        && data.capacityKw is number && data.capacityKw >= 0
+        && data.status in ['ACTIVE', 'MAINTENANCE', 'OFFLINE']
+        && data.imageUrl is string && data.imageUrl.size() <= 500;
+    }
+
+    function isValidWithdrawal(data) {
+      return data.keys().hasAll(['id', 'userId', 'amount', 'bankName', 'iban', 'status', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.amount is number && data.amount > 0
+        && data.bankName is string && data.bankName.size() <= 100
+        && data.iban is string && data.iban.size() <= 34
+        && data.status in ['PROCESSING', 'COMPLETED', 'FAILED']
+        && data.createdAt is timestamp;
+    }
+
+    // Match rules for Collections
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) 
+        && isValidUser(incoming()) 
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        // Verify only allowlisted keys are mutated during balance deductions
+        && (incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'savedAccounts']));
+    }
+
+    match /plants/{plantId} {
+      allow get, list: if isSignedIn();
+      allow write: if false; // Plants are strictly controlled system read-only documents from the client
+    }
+
+    match /users/{userId}/withdrawals/{withdrawalId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) 
+        && isValidId(withdrawalId) 
+        && isValidWithdrawal(incoming())
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'PROCESSING'
+        // Temporal Timestamp integrity clause
+        && incoming().createdAt == request.time;
+      
+      allow update: if false; // Complete ledger safety: withdrawals cannot be edited once created by client
+      allow delete: if false; // Audit logs: client is forbidden from deleting records
+    }
+  }
+}
